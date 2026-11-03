@@ -34,9 +34,15 @@ class Device:
         )
         return [dict(zip(COLS, r)) for r in cur.fetchall()]
 
-    def send(self, device_id, batch_id, now, link_up, manual=0):
-        """One upload attempt. Returns True if the cloud received the rows."""
+    def send(self, device_id, batch_id, now, link_up, manual=0, carry=None):
+        """One upload attempt. Returns True if the cloud received the rows.
+
+        carry: optional function for an extra hop before the cloud
+        (Pipeline A passes the Bluetooth transfer to the phone here).
+        """
         rows = self.unacked(device_id)
+        if link_up and rows and carry is not None:
+            rows = carry(rows)
         result = "ok" if link_up else "offline"
         self.conn.execute(
             "INSERT INTO transmission_log (run_id, device_id, batch_id, attempted_at, result, row_count, manual) "
