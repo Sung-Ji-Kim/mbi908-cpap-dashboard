@@ -33,3 +33,5 @@ class PipelineB:
             del self.batch[device_id]   # sent, or marked failed (rows stay in the buffer)
         else:
             self.batch[device_id][1] = tries
+
+            
