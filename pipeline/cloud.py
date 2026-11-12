@@ -1,7 +1,9 @@
 """Cloud side, local version: the SQLite file that stands in for Azure SQL,
 and receive_batch(), which stands in for the Azure Function that receives data.
 """
+import json
 import sqlite3
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,3 +39,20 @@ def receive_batch(conn, run_id, device_id, batch_id, rows, now):
     conn.execute("UPDATE ingest_log SET rows_inserted = ? WHERE batch_id = ?", (inserted, batch_id))
     conn.commit()
     return inserted
+
+
+def post_batch(url, run_id, device_id, batch_id, rows, now):
+    """Sends one batch to the Azure Function over HTTP. Returns 'ok', 'timeout' or 'http_error'.
+
+    now goes along as sent_at, so the cloud stores the run clock (virtual or real).
+    """
+    body = json.dumps({"run_id": run_id, "device_id": device_id, "batch_id": batch_id,
+                       "sent_at": now, "rows": rows}).encode()
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            return "ok" if res.status == 200 else "http_error"
+    except TimeoutError:
+        return "timeout"
+    except OSError:
+        return "http_error"

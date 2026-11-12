@@ -29,6 +29,10 @@ def main():
     ap.add_argument("--pipeline", choices=["A", "B"], required=True)
     ap.add_argument("--level", choices=["None", "Low", "Medium", "High"], required=True)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--http", action="store_true",
+                    help="send batches to the Azure Function instead of calling receive_batch() "
+                         "(writes cloud_http.db, so the 80 local results are not touched)")
+    ap.add_argument("--url", default="http://localhost:7071/api/ingest")
     args = ap.parse_args()
     run_id = f"{args.pipeline}-{args.level}-s{args.seed:02d}"
 
@@ -37,7 +41,7 @@ def main():
     df = df.astype(object).where(df.notna(), None)
 
     OUT.mkdir(exist_ok=True)
-    cloud = open_cloud(OUT / "cloud.db")
+    cloud = open_cloud(OUT / ("cloud_http.db" if args.http else "cloud.db"))
     for table in ["dashboard_state", "ledger", "telemetry_minute", "ingest_log"]:
         cloud.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))
     cloud.execute("DELETE FROM experiment_run WHERE run_id = ?", (run_id,))
@@ -48,9 +52,9 @@ def main():
                   (run_id, args.pipeline, args.level, args.seed, iso(datetime.now(timezone.utc))))
     cloud.commit()
 
-    dev_path = OUT / f"device_{run_id}.db"
+    dev_path = OUT / (f"device_http_{run_id}.db" if args.http else f"device_{run_id}.db")
     dev_path.unlink(missing_ok=True)
-    device = Device(dev_path, run_id, cloud)
+    device = Device(dev_path, run_id, cloud, ingest_url=args.url if args.http else None)
     pipe = PipelineA(device, run_id, args.seed) if args.pipeline == "A" else PipelineB(device, run_id)
     down = build_outages(args.level, args.seed)
 

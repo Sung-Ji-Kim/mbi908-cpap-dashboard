@@ -6,7 +6,7 @@ send() tries to upload rows, logs the attempt, and marks rows acked on success.
 import sqlite3
 from pathlib import Path
 
-from cloud import receive_batch
+from cloud import post_batch, receive_batch
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "schema" / "sqlite_device.sql"
@@ -14,11 +14,12 @@ COLS = ["event_time", "raw_state", "session_marker", "pressure_cmh2o", "leak_lpm
 
 
 class Device:
-    def __init__(self, path, run_id, cloud):
+    def __init__(self, path, run_id, cloud, ingest_url=None):
         self.conn = sqlite3.connect(path)
         self.conn.executescript(SCHEMA.read_text())
         self.run_id = run_id
         self.cloud = cloud
+        self.ingest_url = ingest_url   # None = call receive_batch() directly (the 80 local runs)
 
     def record(self, device_id, row):
         self.conn.execute(
@@ -43,18 +44,25 @@ class Device:
         rows = self.unacked(device_id)
         if link_up and rows and carry is not None:
             rows = carry(rows)
-        result = "ok" if link_up else "offline"
+        if not link_up:
+            result = "offline"
+        elif not rows:
+            result = "ok"
+        elif self.ingest_url:
+            result = post_batch(self.ingest_url, self.run_id, device_id, batch_id, rows, now)
+        else:
+            receive_batch(self.cloud, self.run_id, device_id, batch_id, rows, now)
+            result = "ok"
         self.conn.execute(
             "INSERT INTO transmission_log (run_id, device_id, batch_id, attempted_at, result, row_count, manual) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (self.run_id, device_id, batch_id, now, result, len(rows), manual),
         )
-        if link_up and rows:
-            receive_batch(self.cloud, self.run_id, device_id, batch_id, rows, now)
+        if result == "ok" and rows:
             self.conn.execute(
                 "UPDATE device_buffer SET acked = 1 WHERE run_id = ? AND device_id = ? AND acked = 0 "
                 "AND event_time <= ?",
                 (self.run_id, device_id, rows[-1]["event_time"]),
             )
         self.conn.commit()
-        return link_up
+        return result == "ok"
