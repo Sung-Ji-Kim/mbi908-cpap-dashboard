@@ -33,12 +33,14 @@ def main():
                     help="send batches to the Azure Function instead of calling receive_batch() "
                          "(writes cloud_http.db, so the 80 local results are not touched)")
     ap.add_argument("--url", default="http://localhost:7071/api/ingest")
+    ap.add_argument("--nights", type=int, default=7, help="send only the first N nights (e.g. 1 for a quick Azure check)")
     args = ap.parse_args()
     run_id = f"{args.pipeline}-{args.level}-s{args.seed:02d}"
 
     df = pd.read_csv(MINUTES, keep_default_na=False, na_values=[""])
     df = df.rename(columns={"true_state": "raw_state"})
     df = df.astype(object).where(df.notna(), None)
+    df = df[df["night"].astype(int) <= args.nights]
 
     OUT.mkdir(exist_ok=True)
     cloud = open_cloud(OUT / ("cloud_http.db" if args.http else "cloud.db"))
@@ -84,6 +86,13 @@ def main():
 
     cloud.executemany("INSERT INTO ledger VALUES (?, ?, ?, ?, ?)", ledger)
     cloud.commit()
+    if args.http and not args.url.startswith("http://localhost"):
+        att = device.conn.execute("SELECT COUNT(*), SUM(result != 'ok') FROM transmission_log WHERE run_id = ?",
+                                  (run_id,)).fetchone()
+        print(f"\n=== {run_id} sent to {args.url} ===")
+        print(f"send attempts {att[0]}  (failed {att[1]})")
+        print("The rows are in the cloud database now. Check them with the read API in a browser.")
+        return
     report(cloud, device, run_id)
 
 

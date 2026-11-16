@@ -51,6 +51,7 @@ def open_db():
     if not use_azure():
         conn = sqlite3.connect(os.environ["CLOUD_DB_PATH"], timeout=30)
         conn.execute("PRAGMA foreign_keys = ON")
+        ensure_local_ethics_schema(conn)
         return conn
     import pymssql
     # A paused free-offer database takes up to a minute to wake up. Try a few times.
@@ -65,6 +66,14 @@ def open_db():
             logging.warning("database not ready yet (%s), retrying in %ss", str(e)[:80], wait)
             clock.sleep(wait)
 
+
+def ensure_local_ethics_schema(conn):
+    """Older local databases have no consent column. Add it once (Azure: consent_access.sql)."""
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(patient)")]
+    if "consent_status" not in cols:
+        conn.execute("ALTER TABLE patient ADD COLUMN consent_status TEXT NOT NULL DEFAULT 'active' "
+                     "CHECK (consent_status IN ('active', 'withdrawn'))")
+    conn.commit()
 
 def integrity_errors():
     if use_azure():
@@ -139,6 +148,23 @@ def reply(body, status):
     return func.HttpResponse(json.dumps(body), status_code=status, mimetype="application/json")
 
 
+# ---------------------------------------------------------------- consent (A2: Consent)
+
+
+def consent_status(conn, patient_id=None, device_id=None):
+    """'active', 'withdrawn', or None when the patient or device is unknown."""
+    if patient_id:
+        rows = query(conn, "SELECT consent_status FROM patient WHERE patient_id = ?", (patient_id,))
+    else:
+        rows = query(conn, "SELECT p.consent_status FROM patient p JOIN device d ON d.patient_id = p.patient_id "
+                           "WHERE d.device_id = ?", (device_id,))
+    return rows[0]["consent_status"] if rows else None
+
+
+
+
+
+
 # ---------------------------------------------------------------- receive
 
 def ingest(req: func.HttpRequest) -> func.HttpResponse:
@@ -156,6 +182,9 @@ def ingest(req: func.HttpRequest) -> func.HttpResponse:
     try:
         conn = open_db()
         try:
+            if consent_status(conn, device_id=body["device_id"]) == "withdrawn":
+                logging.warning("batch %s refused: consent withdrawn for device %s", body["batch_id"], body["device_id"])
+                return reply({"error": "consent withdrawn: data not stored"}, 403)
             inserted = save_batch(conn, body["run_id"], body["device_id"], body["batch_id"], rows, received_at)
         finally:
             conn.close()
@@ -210,7 +239,7 @@ def segments(rows, start, minutes_due):
 def patients(req: func.HttpRequest) -> func.HttpResponse:
     conn = open_db()
     try:
-        rows = query(conn, "SELECT p.patient_id, p.timezone, d.device_id FROM patient p "
+        rows = query(conn, "SELECT p.patient_id, p.timezone, p.consent_status, d.device_id FROM patient p "
                            "JOIN device d ON d.patient_id = p.patient_id ORDER BY p.patient_id")
     finally:
         conn.close()
@@ -218,9 +247,6 @@ def patients(req: func.HttpRequest) -> func.HttpResponse:
 
 
 def nights(req: func.HttpRequest) -> func.HttpResponse:
-    """Query: run_id (required), from (first night, local date, default 2026-11-02),
-    days (default 7), as_of (UTC time the dashboard is looking from, default now).
-    Only rows that had arrived by as_of are used, so a replay shows what the patient saw then."""
     pid = req.route_params.get("patient_id")
     run_id = req.params.get("run_id") or os.environ.get("DEFAULT_RUN_ID")
     if not run_id:
@@ -243,6 +269,8 @@ def nights(req: func.HttpRequest) -> func.HttpResponse:
                             "JOIN device d ON d.patient_id = p.patient_id WHERE p.patient_id = ?", (pid,))
         if not found:
             return reply({"error": f"unknown patient {pid}"}, 404)
+        if consent_status(conn, patient_id=pid) == "withdrawn":
+            return reply({"error": "consent withdrawn: data is not shown"}, 403)
         tz_name, device_id = found[0]["timezone"], found[0]["device_id"]
         tz = ZoneInfo(tz_name)
         last = query(conn, "SELECT MAX(received_at) AS last FROM telemetry_minute "
