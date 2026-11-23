@@ -1,13 +1,17 @@
 """Cloud side, local version: the SQLite file that stands in for Azure SQL,
 and receive_batch(), which stands in for the Azure Function that receives data.
 """
+import csv
 import json
 import sqlite3
+import time
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "schema" / "sqlite_local.sql"
+HTTP_LOG = Path(__file__).resolve().parent / "results" / "live_http_log.csv"
 
 
 def open_cloud(path):
@@ -42,17 +46,29 @@ def receive_batch(conn, run_id, device_id, batch_id, rows, now):
 
 
 def post_batch(url, run_id, device_id, batch_id, rows, now):
-    """Sends one batch to the Azure Function over HTTP. Returns 'ok', 'timeout' or 'http_error'.
 
-    now goes along as sent_at, so the cloud stores the run clock (virtual or real).
-    """
     body = json.dumps({"run_id": run_id, "device_id": device_id, "batch_id": batch_id,
                        "sent_at": now, "rows": rows}).encode()
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    sent = datetime.now(timezone.utc)
+    t0 = time.perf_counter()
     try:
         with urllib.request.urlopen(req, timeout=10) as res:
-            return "ok" if res.status == 200 else "http_error"
+            result = "ok" if res.status == 200 else "http_error"
     except TimeoutError:
-        return "timeout"
+        result = "timeout"
     except OSError:
-        return "http_error"
+        result = "http_error"
+    log_http(run_id, device_id, batch_id, len(rows), sent, (time.perf_counter() - t0) * 1000, result)
+    return result
+
+
+def log_http(run_id, device_id, batch_id, n_rows, sent, ms, result):
+    """One line per HTTP send: real clock time and how long Azure took to answer."""
+    HTTP_LOG.parent.mkdir(exist_ok=True)
+    new = not HTTP_LOG.exists()
+    with HTTP_LOG.open("a", newline="") as f:
+        w = csv.writer(f)
+        if new:
+            w.writerow(["sent_real_utc", "run_id", "device_id", "batch_id", "rows", "response_ms", "result"])
+        w.writerow([sent.strftime("%Y-%m-%dT%H:%M:%SZ"), run_id, device_id, batch_id, n_rows, round(ms), result])    

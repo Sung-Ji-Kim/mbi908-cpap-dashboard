@@ -3,6 +3,7 @@
 Example:  python run.py --pipeline B --level Medium --seed 7
 Output files go to pipeline/output/ (cloud.db holds every run, one device file per run).
 """
+import time as clock
 import argparse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,6 +13,8 @@ import pandas as pd
 from cloud import open_cloud
 from device import Device
 from outages import build_outages
+
+import pipeline_a
 from pipeline_a import PipelineA
 from pipeline_b import PipelineB
 
@@ -34,8 +37,23 @@ def main():
                          "(writes cloud_http.db, so the 80 local results are not touched)")
     ap.add_argument("--url", default="http://localhost:7071/api/ingest")
     ap.add_argument("--nights", type=int, default=7, help="send only the first N nights (e.g. 1 for a quick Azure check)")
+    ap.add_argument("--pace", type=float, default=0,
+                    help="real seconds per virtual minute: 0 = as fast as possible (default), "
+                         "1 = demo speed (a 15-minute batch every 15 s), 60 = real time")
+    ap.add_argument("--minutes", type=int, default=None,
+                    help="stop after the first N minutes (e.g. 60 with --pace 60 = a one-hour real-time run)")
+    ap.add_argument("--tag", default=None, help="added to the run name, e.g. live -> B-Medium-s03-live")
+    ap.add_argument("--catch-up", type=float, default=None,
+                    help="sensitivity run: Pipeline A catch-up probability (default 0.5 in pipeline_a.py). "
+                         "Writes cloud_sens.db, so the 80 main results are not touched")
     args = ap.parse_args()
     run_id = f"{args.pipeline}-{args.level}-s{args.seed:02d}"
+    if args.tag:
+        run_id += f"-{args.tag}"
+    sens = args.catch_up is not None
+    if sens:
+        pipeline_a.CATCH_UP_P = args.catch_up
+        run_id += f"-cu{args.catch_up:.1f}"
 
     df = pd.read_csv(MINUTES, keep_default_na=False, na_values=[""])
     df = df.rename(columns={"true_state": "raw_state"})
@@ -43,7 +61,8 @@ def main():
     df = df[df["night"].astype(int) <= args.nights]
 
     OUT.mkdir(exist_ok=True)
-    cloud = open_cloud(OUT / ("cloud_http.db" if args.http else "cloud.db"))
+    db_name = "cloud_http.db" if args.http else ("cloud_sens.db" if sens else "cloud.db")
+    cloud = open_cloud(OUT / db_name)
     for table in ["dashboard_state", "ledger", "telemetry_minute", "ingest_log"]:
         cloud.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))
     cloud.execute("DELETE FROM experiment_run WHERE run_id = ?", (run_id,))
@@ -73,7 +92,13 @@ def main():
         for i, t in enumerate(times):
             nxt[(dev, t)] = states[i + 1] if i + 1 < len(states) else "idle"
 
-    for minute_no, (t, group) in enumerate(sorted(by_minute.items())):
+    t0 = clock.monotonic()
+    minutes = sorted(by_minute.items())
+    if args.minutes:
+        minutes = minutes[:args.minutes]
+    for minute_no, (t, group) in enumerate(minutes):
+        if args.pace > 0:   # wait until this virtual minute is due on the real clock
+            clock.sleep(max(0.0, t0 + minute_no * args.pace - clock.monotonic()))
         now = iso(datetime.strptime(t, "%Y-%m-%dT%H:%M:00Z") + timedelta(minutes=1))
         for r in group:
             night, idx = int(r["night"]), minute_no % 1440

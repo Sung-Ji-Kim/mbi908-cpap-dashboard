@@ -1,5 +1,6 @@
 """Reads cloud.db and the device files, writes one row per run to results/per_seed.csv."""
 import sqlite3
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -63,11 +64,14 @@ def one_run(cloud, run):
 
 def main():
     RESULTS.mkdir(exist_ok=True)
-    cloud = ro(OUT / "cloud.db")
+    # python metrics.py           -> cloud.db (the 80 main runs), per_seed.csv
+    # python metrics.py sens      -> cloud_sens.db (sensitivity runs), per_seed_sens.csv
+    sens = len(sys.argv) > 1 and sys.argv[1] == "sens"
+    cloud = ro(OUT / ("cloud_sens.db" if sens else "cloud.db"))
     runs = pd.read_sql("SELECT * FROM experiment_run ORDER BY pipeline, failure_level, seed", cloud)
     rows = [one_run(cloud, r) for r in runs.itertuples() if (OUT / f"device_{r.run_id}.db").exists()]
     df = pd.DataFrame(rows)
-    df.to_csv(RESULTS / "per_seed.csv", index=False)
+    df.to_csv(RESULTS / ("per_seed_sens.csv" if sens else "per_seed.csv"), index=False)
     print(df.round(3).to_string(index=False))
 
 
