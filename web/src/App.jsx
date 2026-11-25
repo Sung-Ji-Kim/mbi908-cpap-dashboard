@@ -7,19 +7,19 @@ const RUN = params.get('run');
 const AS_OF = params.get('as_of');
 const REFRESH_S = Math.max(5, Number(params.get('refresh')) || 900);
 
-const TEAL = '#0E5E62';
-const ORANGE = '#E8701A';
-const COLOR = { t: TEAL, m: ORANGE, i: '#DDE3E4' };
-const HATCH = 'repeating-linear-gradient(135deg, #5E6E70 0 2px, #FFFFFF 2px 5px)';
+const TEAL = '#17436A';
+const ORANGE = '#B5473A';
+const COLOR = { t: TEAL, m: ORANGE, i: '#E4E7EB' };
+const HATCH = 'repeating-linear-gradient(135deg, #616E7C 0 2px, #FFFFFF 2px 5px)';
 const GOAL_MIN = 240;
 
-const card = { background: '#FFFFFF', borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column' };
-const tileBase = { display: 'flex', flexDirection: 'column', gap: 4, padding: 14, borderRadius: 12, minHeight: 112, boxSizing: 'border-box' };
-const TILE_OK = { ...tileBase, background: TEAL, color: '#FFFFFF' };
-const TILE_WARN = { ...tileBase, background: '#FFF0E5', color: '#7A2A0C', border: `2px solid ${ORANGE}` };
+const card = { background: '#FFFFFF', borderRadius: 4, border: '1px solid #D9DEE3', padding: 18, display: 'flex', flexDirection: 'column' };
+const tileBase = { display: 'flex', flexDirection: 'column', gap: 4, padding: 14, borderRadius: 4, minHeight: 112, boxSizing: 'border-box' };
+const TILE_OK = { ...tileBase, background: '#FFFFFF', color: '#1F2933', border: '1px solid #CBD2D9' };
+const TILE_WARN = { ...tileBase, background: '#FFFFFF', color: ORANGE, border: '1px solid #CBD2D9' };
 const tab = (on) => ({
-    minHeight: 44, border: 0, borderRadius: 8, cursor: 'pointer', fontSize: 16,
-    background: on ? '#FFFFFF' : 'transparent', color: on ? '#0A4548' : '#34484B', fontWeight: on ? 700 : 500,
+    minHeight: 36, padding: '0 16px', borderRadius: 4, cursor: 'pointer', fontSize: 15, fontWeight: 600,
+    border: `1px solid ${TEAL}`, background: on ? TEAL : '#FFFFFF', color: on ? '#FFFFFF' : TEAL,
 });
 
 function clock(m) {
@@ -55,7 +55,7 @@ function localTime(isoUtc, tz) {
 
 function Swatch({ kind, size = 16 }) {
     const style = { display: 'block', flex: 'none', width: size, height: size, borderRadius: size > 12 ? 4 : 3, boxSizing: 'border-box' };
-    return <span style={kind === 'n' ? { ...style, border: '1px solid #5E6E70', background: HATCH } : { ...style, background: COLOR[kind] }} />;
+    return <span style={kind === 'n' ? { ...style, border: '1px solid #616E7C', background: HATCH } : { ...style, background: COLOR[kind] }} />;
 }
 
 function sessionsOf(segs) {
@@ -112,8 +112,8 @@ function Tiles({ tiles }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
             {tiles.map((t) => (
                 <div key={t.label} style={t.ok ? TILE_OK : TILE_WARN}>
-                    <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.6 }}>{t.label}</span>
-                    <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{t.value}</span>
+                    <span style={{ fontSize: 14, color: '#52606D' }}>{t.label}</span>
+                    <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{t.value}</span>
                     <span style={{ fontSize: 13, lineHeight: 1.4 }}>{t.note}</span>
                 </div>
             ))}
@@ -157,38 +157,35 @@ function NightView({ nights, sel, setSel }) {
                     const on = i === sel;
                     const none = x.not_received_min >= 1440;
                     const d = dayInfo(x.night);
-                    const mark = none ? { border: '1px solid #5E6E70', background: HATCH }
-                        : { background: x.therapy_min >= GOAL_MIN ? (on ? '#FFFFFF' : TEAL) : ORANGE };
                     return (
                         <button key={x.night} type="button" onClick={() => setSel(i)}
                             aria-label={d.label + (none ? ', not received' : ', ' + (x.therapy_min / 60).toFixed(1) + ' hours')}
                             style={{
                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minHeight: 64, padding: '6px 0', cursor: 'pointer',
-                                borderRadius: 10, border: `1px solid ${on ? TEAL : '#CBD6D7'}`, background: on ? TEAL : '#FFFFFF', color: on ? '#FFFFFF' : '#172224'
+                                borderRadius: 4, border: `1px solid ${on ? TEAL : '#CBD2D9'}`, background: on ? TEAL : '#FFFFFF', color: on ? '#FFFFFF' : '#1F2933'
                             }}>
                             <span style={{ fontSize: 12 }}>{d.day}</span>
                             <span style={{ fontSize: 17, fontWeight: 700 }}>{d.num}</span>
-                            <span style={{ display: 'block', width: 18, height: 6, borderRadius: 3, boxSizing: 'border-box', ...mark }} />
                         </button>
                     );
                 })}
             </div>
 
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#34484B' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#3E4C59' }}>
                 Night of {info.label}{sel === nights.length - 1 ? ' (last night)' : ''}
             </div>
 
             {hasNight ? <Tiles tiles={tiles} /> : (
                 <div style={{ ...card, gap: 4 }}>
                     <span style={{ fontSize: 22, fontWeight: 700 }}>Not received yet</span>
-                    <span style={{ fontSize: 15, color: '#34484B' }}>This does not mean the device was off.</span>
+                    <span style={{ fontSize: 15, color: '#3E4C59' }}>This does not mean the device was off.</span>
                 </div>
             )}
 
             <section style={{ ...card, gap: 12 }}>
                 <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Your night, hour by hour</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ position: 'relative', height: 28, borderRadius: 6, background: '#DDE3E4', overflow: 'hidden' }}>
+                    <div style={{ position: 'relative', height: 28, borderRadius: 6, background: '#E4E7EB', overflow: 'hidden' }}>
                         {n.segments.map((g, i) => (
                             <div key={i} style={{
                                 position: 'absolute', top: 0, bottom: 0, left: g[1] / 14.4 + '%', width: g[2] / 14.4 + '%',
@@ -196,7 +193,7 @@ function NightView({ nights, sel, setSel }) {
                             }} />
                         ))}
                     </div>
-                    <div style={{ position: 'relative', height: 16, fontSize: 12, color: '#4F6164' }}>
+                    <div style={{ position: 'relative', height: 16, fontSize: 12, color: '#52606D' }}>
                         <span style={{ position: 'absolute', left: 0 }}>12:00</span>
                         {['18:00', '00:00', '06:00'].map((t, i) => (
                             <span key={t} style={{ position: 'absolute', left: (i + 1) * 25 + '%', transform: 'translateX(-50%)' }}>{t}</span>
@@ -214,15 +211,15 @@ function NightView({ nights, sel, setSel }) {
             <section style={{ ...card, gap: 4 }}>
                 <h2 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>What happened</h2>
                 {eventsFor(n.segments, n.not_received_min).map((e, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '16px minmax(0, 1fr)', gap: 12, padding: '10px 0', borderTop: '1px solid #E4E9EA' }}>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '16px minmax(0, 1fr)', gap: 12, padding: '10px 0', borderTop: '1px solid #E4E7EB' }}>
                         <span style={{ marginTop: 3 }}><Swatch kind={e.k} /></span>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '4px 12px' }}>
                                 <span style={{ fontSize: 15, fontWeight: 700 }}>{e.time}</span>
-                                <span style={{ fontSize: 14, color: '#4F6164' }}>{e.length}</span>
+                                <span style={{ fontSize: 14, color: '#52606D' }}>{e.length}</span>
                             </div>
                             <span style={{ fontSize: 15 }}>{e.what}</span>
-                            {e.note && <span style={{ fontSize: 13, color: '#4F6164', lineHeight: 1.45 }}>{e.note}</span>}
+                            {e.note && <span style={{ fontSize: 13, color: '#52606D', lineHeight: 1.45 }}>{e.note}</span>}
                         </div>
                     </div>
                 ))}
@@ -257,19 +254,19 @@ function WeekView({ nights, pick }) {
             <section style={{ ...card, gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{first.num} to {last.num} {last.mon}</h2>
-                    <div style={{ fontSize: 15, color: '#34484B' }}>
+                    <div style={{ fontSize: 15, color: '#3E4C59' }}>
                         Goal met on {met} of {withData.length} nights{missing ? `. ${missing} ${missing > 1 ? 'nights' : 'night'} not received yet.` : '.'}
                     </div>
-                    <div style={{ fontSize: 13, color: '#4F6164' }}>Tap a night to open it.</div>
+                    <div style={{ fontSize: 13, color: '#52606D' }}>Tap a night to open it.</div>
                 </div>
                 <div style={{ position: 'relative', height: 176 }}>
-                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 75, borderTop: '2px dashed #34484B' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 75, borderTop: '2px dashed #3E4C59' }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${nights.length}, minmax(0, 1fr))`, gap: 6, alignItems: 'end' }}>
                         {nights.map((x, i) => {
                             const none = x.not_received_min >= 1440;
                             const h = x.therapy_min / 60;
                             const px = none ? 120 : Math.max(Math.min(h, 9) / 9 * 120, 3);
-                            const bg = none ? HATCH : (x.therapy_min >= GOAL_MIN ? TEAL : (x.therapy_min === 0 ? '#C4CDCE' : ORANGE));
+                            const bg = none ? HATCH : (x.therapy_min >= GOAL_MIN ? TEAL : (x.therapy_min === 0 ? '#BCC5CF' : ORANGE));
                             const d = dayInfo(x.night);
                             return (
                                 <button key={x.night} type="button" onClick={() => pick(i)} aria-label={d.label + ', ' + (none ? 'not received' : h.toFixed(1) + ' hours')}
@@ -277,12 +274,12 @@ function WeekView({ nights, pick }) {
                                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: '100%', minHeight: 44,
                                         padding: '0 0 2px', cursor: 'pointer', borderRadius: 6, background: 'transparent', border: '2px solid transparent'
                                     }}>
-                                    <span style={{ fontSize: 12, color: '#34484B' }}>{none ? '?' : h.toFixed(1)}</span>
+                                    <span style={{ fontSize: 12, color: '#3E4C59' }}>{none ? '?' : h.toFixed(1)}</span>
                                     <span style={{
                                         display: 'block', width: '100%', maxWidth: 32, height: px, borderRadius: '4px 4px 0 0', boxSizing: 'border-box',
-                                        background: bg, border: none ? '1px solid #5E6E70' : 'none'
+                                        background: bg, border: none ? '1px solid #616E7C' : 'none'
                                     }} />
-                                    <span style={{ fontSize: 12, color: '#34484B', height: 16 }}>{d.day}</span>
+                                    <span style={{ fontSize: 12, color: '#3E4C59', height: 16 }}>{d.day}</span>
                                 </button>
                             );
                         })}
@@ -292,7 +289,7 @@ function WeekView({ nights, pick }) {
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Swatch kind="t" size={12} />4 h or more</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Swatch kind="m" size={12} />Under 4 h</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Swatch kind="n" size={12} />Not received</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, borderTop: '2px dashed #34484B' }} />4 h goal</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, borderTop: '2px dashed #3E4C59' }} />4 h goal</span>
                 </div>
             </section>
             <Tiles tiles={tiles} />
@@ -348,34 +345,29 @@ export default function App() {
     const lastNight = nights[nights.length - 1];
     const lastIn = lastNight && lastNight.not_received_min < 1440;
     const lastRecv = localTime(data?.last_received, tz) || 'never';
-    const banner = { borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4 };
+    const banner = { borderRadius: 4, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 4 };
 
     return (
-        <div style={{ fontFamily: "'Figtree', system-ui, sans-serif", color: '#172224', background: '#F2F5F5', minHeight: '100vh' }}>
+        <div style={{ fontFamily: "Arial, Helvetica, sans-serif", color: '#1F2933', background: '#F4F6F8', minHeight: '100vh' }}>
             <header style={{ background: TEAL, color: '#FFFFFF' }}>
                 <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
-                            <circle cx="15" cy="15" r="14" fill="none" stroke="#FFFFFF" strokeWidth="2" />
-                            <path d="M19 8a8 8 0 1 0 3 12a6.5 6.5 0 1 1 -3 -12z" fill="#FFFFFF" />
-                        </svg>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: 0.2 }}>Night Log</span>
-                            <span style={{ fontSize: 12, color: '#CFE6E6' }}>
+                            <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: 0.2 }}>MBI908 - CPAP Monitoring </span>
+                            <span style={{ fontSize: 12, color: '#C9D6E3' }}>
                                 {lastNight ? nextDayLabel(lastNight.night) + ' · ' : ''}updates every {REFRESH_S >= 60 ? Math.round(REFRESH_S / 60) + ' min' : REFRESH_S + ' s'}
                             </span>
                         </div>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 999, background: '#0A4548', color: '#E3F1F1' }}>RESEARCH PROTOTYPE</span>
                 </div>
             </header>
 
             <main style={{ maxWidth: 560, margin: '0 auto', padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 13, color: '#4F6164', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 13, color: '#52606D', flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         Patient
                         <select value={patient} onChange={(e) => setPatient(e.target.value)}
-                            style={{ minHeight: 36, padding: '0 8px', borderRadius: 8, border: '1px solid #CBD6D7', background: '#FFFFFF', color: '#172224' }}>
+                            style={{ minHeight: 36, padding: '0 8px', borderRadius: 4, border: '1px solid #CBD2D9', background: '#FFFFFF', color: '#1F2933' }}>
                             {(patients.length ? patients.map((p) => p.patient_id) : ['P01', 'P02', 'P03', 'P04', 'P05']).map((p) => (
                                 <option key={p} value={p}>{p}</option>
                             ))}
@@ -384,14 +376,14 @@ export default function App() {
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {checkedAt && <span>Checked {checkedAt.toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
                         <button type="button" onClick={load} disabled={loading}
-                            style={{ minHeight: 36, padding: '0 12px', borderRadius: 8, border: `1px solid ${TEAL}`, background: '#FFFFFF', color: TEAL, fontWeight: 600, cursor: 'pointer' }}>
+                            style={{ minHeight: 36, padding: '0 12px', borderRadius: 4, border: `1px solid ${TEAL}`, background: '#FFFFFF', color: TEAL, fontWeight: 600, cursor: 'pointer' }}>
                             {loading ? 'Checking…' : 'Refresh'}
                         </button>
                     </span>
                 </div>
 
                 {error && error.consent && (
-                    <div style={{ ...banner, background: '#ECEFF0', color: '#26383A' }}>
+                    <div style={{ ...banner, background: '#EEF1F4', color: '#2D3A45' }}>
                         <div style={{ fontSize: 16, fontWeight: 600 }}>Data not shown</div>
                         <div style={{ fontSize: 14, lineHeight: 1.45 }}>This patient has withdrawn consent, so their data is no longer shown or stored.</div>
                     </div>
@@ -407,7 +399,7 @@ export default function App() {
 
                 {data && nights.length > 0 && sel != null && (
                     <>
-                        <div style={{ ...banner, ...(lastIn ? { background: '#E3F1F1', color: '#0A3F41' } : { background: '#FFF0E5', color: '#6B2410' }) }}>
+                        <div style={{ ...banner, ...(lastIn ? { background: '#E6EDF4', color: '#0F2F4B' } : { background: '#FBECEA', color: '#8A2F25' }) }}>
                             <div style={{ fontSize: 16, fontWeight: 600 }}>{lastIn ? 'Your data is up to date' : 'We haven’t received last night’s data yet'}</div>
                             <div style={{ fontSize: 15, lineHeight: 1.45 }}>
                                 {lastIn ? `Last update received ${lastRecv}.`
@@ -415,7 +407,7 @@ export default function App() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 4, padding: 4, background: '#DCE6E6', borderRadius: 10 }}>
+                        <div style={{ display: 'flex', gap: 8 }}>
                             <button type="button" onClick={() => setView('night')} style={tab(view === 'night')}>Night</button>
                             <button type="button" onClick={() => setView('week')} style={tab(view === 'week')}>Week</button>
                         </div>
@@ -426,8 +418,7 @@ export default function App() {
                     </>
                 )}
 
-                <p style={{ margin: 0, fontSize: 13, color: '#4F6164', lineHeight: 1.45 }}>Questions about these numbers? Contact your care team.</p>
-                <p style={{ margin: 0, fontSize: 12, color: '#4F6164', lineHeight: 1.45 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#52606D', lineHeight: 1.45 }}>
                     Research prototype for MBI908, built on synthetic data{data?.run_id ? ` (run ${data.run_id})` : ''}. Not affiliated with or endorsed by Fisher &amp; Paykel Healthcare.
                 </p>
             </main>
